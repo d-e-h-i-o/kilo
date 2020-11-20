@@ -551,7 +551,7 @@ void editorSelectSyntaxHighlight(char *filename) {
 }
 
 /* ======================= Editor rows implementation ======================= */
-#define TAB_SIZE=4
+#define TAB_SIZE 4
 /* Update the rendered version and the syntax highlight of a row. */
 void editorUpdateRow(erow *row) {
     unsigned int tabs = 0, nonprint = 0;
@@ -787,6 +787,26 @@ void editorDelChar() {
             E.coloff--;
         else
             E.cx--;
+    }
+    if (row) editorUpdateRow(row);
+    E.dirty++;
+}
+
+/* Delete the char at the right of current prompt position. */
+void editorDelNextChar() {
+    int filerow = E.rowoff+E.cy;
+    int filecol = E.coloff+E.cx;
+    erow *row = (filerow >= E.numrows) ? NULL : &E.row[filerow];
+
+    if (!row || (filecol == 0 && filerow == 0)) return;
+    if (filecol == row->size) {
+        /* Handle the case of last column, we need to delete the newline on the end of line */
+        erow *nextrow = (filerow + 1 >= E.numrows) ? NULL : &E.row[filerow + 1];
+        editorRowAppendString(&E.row[filerow],nextrow->chars,nextrow->size);
+        editorDelRow(filerow + 1);
+        row = NULL;
+    } else {
+        editorRowDelChar(row,filecol);
     }
     if (row) editorUpdateRow(row);
     E.dirty++;
@@ -1217,8 +1237,10 @@ void editorProcessKeypress(int fd) {
         break;
     case BACKSPACE:     /* Backspace */
     case CTRL_H:        /* Ctrl-h */
-    case DEL_KEY:
         editorDelChar();
+        break;
+    case DEL_KEY:
+        editorDelNextChar();
         break;
     case PAGE_UP:
     case PAGE_DOWN:
